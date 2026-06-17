@@ -91,6 +91,40 @@ def load_agent(path: str):
     return module.agent
 
 
+def load_agent_with_deck(agent_path: str, deck_path: str):
+    """Load an agent whose main.py reads `deck.csv` from its own directory.
+
+    Copies the agent file and the chosen deck.csv into a temp dir, then imports
+    from there so the agent's `read_deck_csv()` / module-level deck read resolves.
+    Returns (agent_callable, deck_list).
+    """
+    import shutil
+    import tempfile
+
+    deck = [int(x) for x in open(deck_path).read().split() if x.strip()]
+    tmp = tempfile.mkdtemp(prefix="agent_")
+    shutil.copy(agent_path, os.path.join(tmp, "main.py"))
+    with open(os.path.join(tmp, "deck.csv"), "w") as f:
+        f.write("\n".join(map(str, deck)) + "\n")
+
+    cwd = os.getcwd()
+    os.chdir(tmp)  # agents read "deck.csv" relative to cwd at import time
+    try:
+        sys.path.insert(0, tmp)
+        spec = importlib.util.spec_from_file_location(
+            f"_agent_{abs(hash(tmp))}", os.path.join(tmp, "main.py")
+        )
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+    finally:
+        os.chdir(cwd)
+        if tmp in sys.path:
+            sys.path.remove(tmp)
+    if not hasattr(module, "agent"):
+        raise AttributeError(f"{agent_path} has no `agent` function")
+    return module.agent, deck
+
+
 def make_random_agent(deck: list[int]):
     """A random-but-legal agent bound to a deck (returns deck on first call)."""
 
