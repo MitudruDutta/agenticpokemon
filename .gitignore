@@ -1,7 +1,6 @@
 data/
 study/
+build/
 __pycache__/
 *.pyc
 .env
-build/sub/
-build/*.tar.gz
